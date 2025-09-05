@@ -1,0 +1,10 @@
+assistant_config:
+  provider: ollama
+  model: llava:13b
+  verbose: true
+  logprobs: true
+  reasoning_effort: null
+  max_tokens: 30000
+processing_config:
+  detail_level: high
+  
