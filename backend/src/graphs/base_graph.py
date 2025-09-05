@@ -3,6 +3,7 @@ from langgraph.graph import StateGraph
 from typing import Type, TypeVar, Generic
 from components.shared_nodes import SharedNodes
 from pydantic import BaseModel
+from langgraph.checkpoint.memory import InMemorySaver
 
 S = TypeVar("S", bound=BaseModel)
 
@@ -39,7 +40,8 @@ class BaseDocumentGraph(Generic[S], ABC):
         """
         Compile the graph after it has been built.
         """
-        return self.graph.compile()
+        memory = InMemorySaver()
+        return self.graph.compile(checkpointer=memory)
 
     def add_common_nodes(self, graph: StateGraph[S]) -> StateGraph[S]:
         """

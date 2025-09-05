@@ -13,7 +13,7 @@ class CustomToolSetBase(ABC):
         """
         pass
 
-class CodingTools(CustomToolSetBase):
+class FinanceTools(CustomToolSetBase):
     """
     Class containing the tools required for Coding
     """

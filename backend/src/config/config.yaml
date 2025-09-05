@@ -1,6 +1,6 @@
 assistant_config:
-  provider: ollama
-  model: llava:13b
+  provider: google
+  model: gemini-1.5-pro
   verbose: true
   logprobs: true
   reasoning_effort: null

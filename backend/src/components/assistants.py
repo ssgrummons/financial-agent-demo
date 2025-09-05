@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional, Any
 import base64
-from clients.models import AzureOpenAIModelFactory, OllamaModelFactory
+from clients.models import AzureOpenAIModelFactory, OllamaModelFactory, GoogleModelFactory, AnthropicModelFactory
 import logging
 from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 from .message_strategies import MessageBuildStrategy
@@ -14,8 +14,8 @@ class MultiModalAsssitant:
     
     def __init__(self,
                  message_strategy: MessageBuildStrategy,
-                 provider: str = "azure", # future use with Generic Model Factory
-                 model: str = "gpt-4.1",
+                 provider: str = "google", # future use with Generic Model Factory
+                 model: str = "gemini-1.5-pro",
                  tools: List = None,
                  verbose: bool = True,
                  logprobs: bool = True,
@@ -42,6 +42,8 @@ class MultiModalAsssitant:
         factory_map: Dict[str, Any] = {
             "azure": AzureOpenAIModelFactory,
             "ollama": OllamaModelFactory,
+            "google": GoogleModelFactory,
+            "anthropic": AnthropicModelFactory
         }
 
         factory_cls = factory_map.get(self.provider)
