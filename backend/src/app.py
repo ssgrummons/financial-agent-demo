@@ -1,6 +1,7 @@
 # backend/src/app.py
 import logging
 import uuid
+import os
 import json
 from typing import Dict, Any, AsyncGenerator
 from contextlib import asynccontextmanager

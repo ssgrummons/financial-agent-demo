@@ -1,9 +1,9 @@
-# backend/src/config/settings.py
+# backend/config/settings.py
 import yaml
 from pathlib import Path
 from functools import lru_cache
 from typing import Optional, Dict, Any
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 class AssistantConfig(BaseSettings):
@@ -68,8 +68,8 @@ class Settings(BaseSettings):
     system_prompt: str = Field(default="", description="System prompt for the assistant")
     
     # Config file paths
-    config_file_path: str = Field(default="src/config/config.yaml", description="Path to YAML config file")
-    system_prompt_path: str = Field(default="src/config/prompts/system_prompt.md", description="Path to system prompt file")
+    config_file_path: str = Field(default="config/config.yaml", description="Path to YAML config file")
+    system_prompt_path: str = Field(default="config/prompts/system_prompt.md", description="Path to system prompt file")
     
     def __init__(self, **kwargs):
         # Load YAML config before initializing
@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     
     def _load_yaml_config(self) -> Dict[str, Any]:
         """Load configuration from YAML file."""
-        config_path = Path(self.config_file_path if hasattr(self, 'config_file_path') else "src/config/config.yaml")
+        config_path = Path(self.config_file_path if hasattr(self, 'config_file_path') else "config/config.yaml")
         
         if not config_path.exists():
             # Return default config if file doesn't exist
@@ -112,7 +112,7 @@ class Settings(BaseSettings):
     
     def _load_system_prompt(self) -> str:
         """Load system prompt from markdown file."""
-        prompt_path = Path(self.system_prompt_path if hasattr(self, 'system_prompt_path') else "src/config/prompts/system_prompt.md")
+        prompt_path = Path(self.system_prompt_path if hasattr(self, 'system_prompt_path') else "config/prompts/system_prompt.md")
         
         if not prompt_path.exists():
             return "You are GAgent, a helpful financial advisor AI assistant."
@@ -123,12 +123,23 @@ class Settings(BaseSettings):
         except Exception as e:
             raise ValueError(f"Failed to load system prompt from {prompt_path}: {e}")
     
-    @validator('cors_origins', pre=True)
+    @field_validator('cors_origins', mode='before')
+    @classmethod
     def parse_cors_origins(cls, v):
         """Parse CORS origins from comma-separated string to list."""
+        print(f"DEBUG: cors_origins received: {v} (type: {type(v)})")
+        
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(',') if origin.strip()]
-        return v
+            result = [origin.strip() for origin in v.split(',') if origin.strip()]
+            print(f"DEBUG: Parsed string to list: {result}")
+            return result
+        elif isinstance(v, list):
+            result = [str(origin).strip() for origin in v if str(origin).strip()]
+            print(f"DEBUG: Processed existing list: {result}")
+            return result
+        
+        # Fallback
+        return [str(v)] if v else []
     
     def validate_api_keys(self) -> None:
         """Validate that required API keys are present based on configuration."""
