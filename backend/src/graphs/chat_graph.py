@@ -67,7 +67,7 @@ class ChatGraph(BaseGraph[ChatState]):
 
         return graph
 
-    def should_continue(self, state: ChatState, config: Dict[str, Any]) -> str:
+    def should_continue(self, state: ChatState, config: Dict[str, Any] = None) -> str:
         """Determine if we should continue to tools or end."""
         from langgraph.graph import END  # Import here to avoid circular imports
         

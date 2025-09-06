@@ -36,14 +36,21 @@ class StreamEvent:
 @dataclass
 class AssistantResponseEvent(StreamEvent):
     """Event for assistant text responses."""
-    type: str = "assistant_response"
+    # Remove the type field since it's already defined in parent with no default
+    # and we want to set a default value
+    def __post_init__(self):
+        if not hasattr(self, 'type') or self.type == "":
+            self.type = "assistant_response"
 
 
 @dataclass
 class ToolExecutionEvent(StreamEvent):
     """Event for tool execution notifications."""
-    type: str = "tool_execution"
     tool_name: Optional[str] = None
+
+    def __post_init__(self):
+        if not hasattr(self, 'type') or self.type == "":
+            self.type = "tool_execution"
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
@@ -55,14 +62,20 @@ class ToolExecutionEvent(StreamEvent):
 @dataclass
 class ThinkingEvent(StreamEvent):
     """Event for processing/thinking notifications."""
-    type: str = "thinking"
+    
+    def __post_init__(self):
+        if not hasattr(self, 'type') or self.type == "":
+            self.type = "thinking"
 
 
 @dataclass
 class ErrorEvent(StreamEvent):
     """Event for error notifications."""
-    type: str = "error"
     error_code: Optional[str] = None
+
+    def __post_init__(self):
+        if not hasattr(self, 'type') or self.type == "":
+            self.type = "error"
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
@@ -74,8 +87,12 @@ class ErrorEvent(StreamEvent):
 @dataclass
 class CompletionEvent(StreamEvent):
     """Event signaling completion of streaming."""
-    type: str = "done"
-    content: str = ""
+    
+    def __post_init__(self):
+        if not hasattr(self, 'type') or self.type == "":
+            self.type = "done"
+        if not hasattr(self, 'content') or self.content == "":
+            self.content = ""
 
 
 class EventEmitter:
@@ -94,30 +111,30 @@ class EventEmitter:
     
     async def emit_assistant_response(self, content: str, **kwargs) -> AsyncGenerator[str, None]:
         """Emit an assistant response event."""
-        event = AssistantResponseEvent(content=content, session_id=self.session_id, **kwargs)
+        event = AssistantResponseEvent(type="assistant_response", content=content, session_id=self.session_id, **kwargs)
         async for chunk in self.emit(event):
             yield chunk
     
     async def emit_tool_execution(self, content: str, tool_name: Optional[str] = None, **kwargs) -> AsyncGenerator[str, None]:
         """Emit a tool execution event."""
-        event = ToolExecutionEvent(content=content, tool_name=tool_name, session_id=self.session_id, **kwargs)
+        event = ToolExecutionEvent(type="tool_execution", content=content, tool_name=tool_name, session_id=self.session_id, **kwargs)
         async for chunk in self.emit(event):
             yield chunk
     
     async def emit_thinking(self, content: str = "Processing your request...", **kwargs) -> AsyncGenerator[str, None]:
         """Emit a thinking/processing event."""
-        event = ThinkingEvent(content=content, session_id=self.session_id, **kwargs)
+        event = ThinkingEvent(type="thinking", content=content, session_id=self.session_id, **kwargs)
         async for chunk in self.emit(event):
             yield chunk
     
     async def emit_error(self, content: str, error_code: Optional[str] = None, **kwargs) -> AsyncGenerator[str, None]:
         """Emit an error event."""
-        event = ErrorEvent(content=content, error_code=error_code, session_id=self.session_id, **kwargs)
+        event = ErrorEvent(type="error", content=content, error_code=error_code, session_id=self.session_id, **kwargs)
         async for chunk in self.emit(event):
             yield chunk
     
     async def emit_completion(self, **kwargs) -> AsyncGenerator[str, None]:
         """Emit a completion event."""
-        event = CompletionEvent(session_id=self.session_id, **kwargs)
+        event = CompletionEvent(type="done", content="", session_id=self.session_id, **kwargs)
         async for chunk in self.emit(event):
             yield chunk
