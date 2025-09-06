@@ -14,6 +14,7 @@ from models.schemas import ChatRequest, ChatResponse, SessionRequest, NewSession
 from graphs.chat_graph import ChatGraph
 from services.session_service import SessionService
 from config.settings import get_settings
+from streaming.orchestrator import StreamingOrchestrator
 
 # Configure logging
 log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -185,48 +186,29 @@ async def chat_stream(
         logger.info(f"Processing streaming chat for session: {request.session_id}")
         
         async def generate_response() -> AsyncGenerator[str, None]:
-            try:
-                # Get session configuration for graph
-                config = await session_svc.get_session_config(request.session_id)
-                
-                # Prepare initial state
-                initial_state = {
-                    "messages": [{"role": "user", "content": request.user_prompt}],
-                    "session_id": request.session_id,
-                    "user_id": "demo_user",  # Single user for demo
-                    "user_prompt": request.user_prompt,
-                }
-                
-                # Track response content for session storage
-                full_response = ""
-                
-                # Stream the graph execution
-                async for chunk in graph.astream(initial_state, config):
-                    chunk_data = await process_graph_chunk(chunk)
-                    if chunk_data:
-                        # Accumulate assistant responses
-                        if chunk_data.get("type") == "assistant_response":
-                            full_response += chunk_data.get("content", "")
-                        
-                        # Yield formatted chunk
-                        yield f"data: {json.dumps(chunk_data)}\n\n"
-                
-                # Store conversation in session
-                await session_svc.add_message(request.session_id, "user", request.user_prompt)
-                if full_response:
-                    await session_svc.add_message(request.session_id, "assistant", full_response)
-                
-                # Send completion signal
-                yield f"data: {json.dumps({'type': 'done', 'session_id': request.session_id})}\n\n"
-                
-            except Exception as e:
-                logger.error(f"Error in chat stream: {e}")
-                error_data = {
-                    "type": "error",
-                    "content": f"An error occurred: {str(e)}",
-                    "session_id": request.session_id
-                }
-                yield f"data: {json.dumps(error_data)}\n\n"
+            # Create streaming orchestrator
+            orchestrator = StreamingOrchestrator(session_id=request.session_id)
+            
+            # Get session configuration
+            config = await session_svc.get_session_config(request.session_id)
+            
+            # Prepare initial state
+            initial_state = {
+                "messages": [{"role": "user", "content": request.user_prompt}],
+                "session_id": request.session_id,
+                "user_id": "demo_user",
+                "user_prompt": request.user_prompt,
+            }
+            
+            # Stream the graph execution - that's it!
+            async for chunk in orchestrator.stream_graph_execution(graph, initial_state, config):
+                yield chunk
+            
+            # Store conversation in session (using accumulated response)
+            await session_svc.add_message(request.session_id, "user", request.user_prompt)
+            full_response = orchestrator.get_accumulated_response()
+            if full_response:
+                await session_svc.add_message(request.session_id, "assistant", full_response)
         
         return StreamingResponse(
             generate_response(),
@@ -234,7 +216,7 @@ async def chat_stream(
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
-                "X-Accel-Buffering": "no"  # Disable nginx buffering
+                "X-Accel-Buffering": "no"
             }
         )
         
@@ -243,46 +225,6 @@ async def chat_stream(
     except Exception as e:
         logger.error(f"Failed to process chat request: {e}")
         raise HTTPException(status_code=500, detail="Failed to process chat request")
-
-async def process_graph_chunk(chunk: Dict[str, Any]) -> Dict[str, Any]:
-    """Process a chunk from the graph stream and format for frontend."""
-    try:
-        # Handle different types of chunks from LangGraph
-        if "assistant" in chunk:
-            # Assistant reasoning or response
-            messages = chunk["assistant"].get("messages", [])
-            if messages:
-                last_message = messages[-1]
-                content = getattr(last_message, 'content', str(last_message))
-                
-                return {
-                    "type": "assistant_response",
-                    "content": content,
-                    "timestamp": None  # Add timestamp if needed
-                }
-        
-        elif "tools" in chunk:
-            # Tool execution
-            tool_messages = chunk["tools"].get("messages", [])
-            if tool_messages:
-                return {
-                    "type": "tool_execution",
-                    "content": "🔧 Using financial tools...",
-                    "details": str(tool_messages[-1]) if tool_messages else None
-                }
-        
-        # Handle other chunk types as needed
-        return {
-            "type": "thinking",
-            "content": "💭 Processing your request...",
-        }
-        
-    except Exception as e:
-        logger.error(f"Error processing graph chunk: {e}")
-        return {
-            "type": "error",
-            "content": f"Error processing response: {str(e)}"
-        }
 
 @app.get("/health")
 async def health_check():

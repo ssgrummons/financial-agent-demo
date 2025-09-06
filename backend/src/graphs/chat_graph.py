@@ -1,8 +1,9 @@
 import logging
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
+from typing import Dict, Any
 
-from graphs.base_graph import BaseDocumentGraph
+from graphs.base_graph import BaseGraph
 from components.assistants import MultiModalAsssitant
 from components.message_strategies import SingleImageStrategy
 from components.tools import FinanceTools
@@ -13,7 +14,7 @@ from models.states import ChatState  # <-- Pydantic model
 # ------------------------------------------------------------------
 logger = logging.getLogger(__name__)
 
-class ChatGraph(BaseDocumentGraph[ChatState]):
+class ChatGraph(BaseGraph[ChatState]):
     """
     Graph that validates, converts TIFF → PNG, runs the assistant,
     extracts Markdown, and saves the result.
@@ -66,7 +67,7 @@ class ChatGraph(BaseDocumentGraph[ChatState]):
 
         return graph
 
-    def should_continue(state: ChatState) -> str:
+    def should_continue(self, state: ChatState, config: Dict[str, Any]) -> str:
         """Determine if we should continue to tools or end."""
         from langgraph.graph import END  # Import here to avoid circular imports
         
