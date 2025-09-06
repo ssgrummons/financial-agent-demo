@@ -5,7 +5,6 @@ assistant_config:
   logprobs: true
   reasoning_effort: null
   max_tokens: 30000
-  temperature: 0.8
 processing_config:
   detail_level: high
   

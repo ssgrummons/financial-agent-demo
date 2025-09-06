@@ -87,42 +87,38 @@ class AzureOpenAIModelFactory(ModelFactory):
         self.settings = settings or AzureOpenAISettings()
         
     def create_model(self, 
-                     model_name: Optional[str] = None, 
-                     verbose: Optional[bool] = True, 
-                     streaming: Optional[bool] = False,
-                     logprobs: Optional[bool] = False,
-                     reasoning_effort: Optional[str] = 'minimal',
-                     max_tokens: Optional[int] = None
-                     ) -> BaseChatModel:
-        """Create an Azure OpenAI chat model instance.
+                    model_name: Optional[str] = None, 
+                    verbose: Optional[bool] = True, 
+                    streaming: Optional[bool] = False,
+                    logprobs: Optional[bool] = False,
+                    reasoning_effort: Optional[str] = 'minimal',
+                    max_tokens: Optional[int] = None
+                    ) -> BaseChatModel:
+        """Create a Google Gemini chat model instance."""
+        model = model_name or self.settings.GOOGLE_MODEL
+        max_output_tokens = max_tokens or self.settings.MAX_TOKENS
         
-        Args:
-            model_name: Optional model name to override the default from settings.
-            verbose: Optional verbose parameter.
-            streaming: Whether to enable streaming mode.
+        logging.info(f"Creating Google Gemini model: {model}, streaming: {streaming}")
+        
+        # Build model_kwargs for additional parameters
+        model_kwargs = {}
+        
+        # Add Google-specific parameters if they're set
+        if self.settings.TOP_K is not None:
+            model_kwargs["top_k"] = self.settings.TOP_K
+        if self.settings.TOP_P is not None:
+            model_kwargs["top_p"] = self.settings.TOP_P
             
-        Returns:
-            A configured AzureChatOpenAI instance.
-        """
-        deployment_name = model_name or self.settings.AZURE_OPENAI_DEPLOYMENT_NAME
-        max_tokens = max_tokens or self.settings.MAX_TOKENS
-        logging.info(f"Creating Azure OpenAI model with deployment: {deployment_name}, streaming: {streaming}")
-        
-        # Create the model with streaming support
-        model = AzureChatOpenAI(
-            api_key=self.settings.AZURE_OPENAI_API_KEY,
-            azure_deployment=deployment_name,
-            api_version=self.settings.AZURE_OPENAI_API_VERSION,
-            azure_endpoint=self.settings.AZURE_OPENAI_ENDPOINT,
-            temperature=self.settings.TEMPERATURE,
-            max_tokens=self.settings.MAX_TOKENS,
+        return ChatGoogleGenerativeAI(
+            google_api_key=self.settings.GOOGLE_API_KEY,
+            model=model,
+            model_kwargs=model_kwargs,
+            safety_settings=self.settings.SAFETY_SETTINGS,
+            disable_streaming=not streaming,  # Use disable_streaming instead of streaming
             verbose=verbose,
-            streaming=streaming,
-            logprobs=logprobs,
-            reasoning_effort=reasoning_effort
+            temperature=self.settings.TEMPERATURE,  # This is a direct parameter
+            max_output_tokens=max_output_tokens,     # This is a direct parameter
         )
-        
-        return model
 
 class OllamaModelFactory(ModelFactory):
     """Factory for creating Ollama chat models."""
@@ -200,7 +196,7 @@ class GoogleModelFactory(ModelFactory):
             streaming=streaming,
             verbose=verbose,
             temperature=self.settings.TEMPERATURE,
-            max_output_tokens=self.settings.MAX_TOKENS
+            max_output_tokens=max_output_tokens
         )
 
 class AnthropicModelFactory(ModelFactory):
