@@ -1,7 +1,7 @@
 from .assistants import MultiModalAsssitant
 from .message_strategies import DocumentPagesStrategy, SingleImageStrategy, BatchComparisonStrategy, MessageBuildStrategy
 from .shared_nodes import SharedNodes
-from .tools import CodingTools
+from .tools import FinanceTools
 
 __all__ = [
     'MultiModalAsssitant',
@@ -10,6 +10,6 @@ __all__ = [
     'BatchComparisonStrategy',
     'SharedNodes',
     'MessageBuildStrategy',
-    'CodingTools'
+    'FinanceTools'
 
 ]

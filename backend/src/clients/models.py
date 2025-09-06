@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
         
 class AzureOpenAISettings(BaseSettings):
     """Settings for Azure OpenAI model configuration"""
-    AZURE_OPENAI_API_KEY: str 
-    AZURE_OPENAI_DEPLOYMENT_NAME: str
-    AZURE_OPENAI_API_VERSION: str
-    AZURE_OPENAI_ENDPOINT: str
+    AZURE_OPENAI_API_KEY: Optional[str] = None
+    AZURE_OPENAI_DEPLOYMENT_NAME: Optional[str] = None
+    AZURE_OPENAI_API_VERSION: Optional[str] = None
+    AZURE_OPENAI_ENDPOINT: Optional[str] = None
     MAX_TOKENS: int = 4000  # Added default value
     TEMPERATURE: float = 0.7  # Added default value
     
@@ -29,7 +29,7 @@ class AzureOpenAISettings(BaseSettings):
 
 class OllamaSettings(BaseSettings):
     """Settings for Ollama model configuration."""
-    OLLAMA_MODEL: str 
+    OLLAMA_MODEL: Optional[str] 
     MAX_TOKENS: int 
     TEMPERATURE: float 
     OLLAMA_HOST: str = "granite3.3"
@@ -41,8 +41,8 @@ class OllamaSettings(BaseSettings):
         
 class GoogleSettings(BaseSettings):
     """Settings for Google Gemini model configuration."""
-    GOOGLE_API_KEY: str
-    GOOGLE_MODEL: str = "gemini-1.5-pro"  # Default model
+    GOOGLE_API_KEY: Optional[str]
+    GOOGLE_MODEL: Optional[str] = "gemini-1.5-pro"  # Default model
     MAX_TOKENS: int = 4000
     TEMPERATURE: float = 0.7
     # Google-specific parameters with defaults
@@ -57,7 +57,7 @@ class GoogleSettings(BaseSettings):
 
 class AnthropicSettings(BaseSettings):
     """Settings for Anthropic Claude model configuration."""
-    ANTHROPIC_API_KEY: str
+    ANTHROPIC_API_KEY: Optional[str]
     ANTHROPIC_MODEL: str = "claude-3-5-sonnet-20241022"  # Default model
     MAX_TOKENS: int = 4000
     TEMPERATURE: float = 0.7

@@ -21,6 +21,7 @@ sentence-transformers = "^2.5.1"
 langgraph = "^0.3.26"
 langchain-google-genai = "^2.1.10"
 langchain-anthropic = "^0.3.19"
+langchain-openai = "^0.3.32"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

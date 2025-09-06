@@ -1,4 +1,3 @@
-
 # backend/src/app.py
 import logging
 import uuid
@@ -38,26 +37,58 @@ async def lifespan(app: FastAPI):
     
     # Startup
     logger.info("Starting GAgent Financial Advisor API...")
-    settings = get_settings()
     
-    # Initialize services
-    session_service = SessionService()
-    chat_graph = ChatGraph(
-        provider=settings.model_provider,
-        model=settings.model_name,
-        verbose=settings.verbose,
-        logprobs=settings.enable_logprobs,
-        reasoning_effort=settings.reasoning_effort,
-        max_tokens=settings.max_tokens,
-    )
+    try:
+        # Load and validate settings
+        settings = get_settings()
+        logger.info(f"Configuration loaded successfully:")
+        logger.info(f"  - Provider: {settings.assistant_config.provider}")
+        logger.info(f"  - Model: {settings.assistant_config.model}")
+        logger.info(f"  - Max Tokens: {settings.assistant_config.max_tokens}")
+        logger.info(f"  - System Prompt: {len(settings.system_prompt)} characters")
+        
+        # Validate API keys early
+        settings.validate_api_keys()
+        logger.info("API key validation passed")
+        
+        # Initialize session service
+        session_service = SessionService()
+        logger.info("Session service initialized")
+        
+        # Initialize chat graph with proper settings mapping
+        model_config = settings.get_model_config()
+        chat_graph = ChatGraph(
+            provider=model_config["provider"],
+            model=model_config["model"],
+            verbose=model_config["verbose"],
+            logprobs=model_config["logprobs"],
+            reasoning_effort=model_config["reasoning_effort"],
+            max_tokens=model_config["max_tokens"],
+        )
+        logger.info("Chat graph initialized successfully")
+        
+        # Store settings in app state for access in routes
+        app.state.settings = settings
+        
+        logger.info("✅ GAgent Financial Advisor API startup complete")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize application: {e}")
+        raise
     
-    logger.info("Services initialized successfully")
     yield
     
     # Shutdown
     logger.info("Shutting down GAgent Financial Advisor API...")
-    if session_service:
-        await session_service.cleanup()
+    try:
+        if session_service:
+            await session_service.cleanup()
+            logger.info("Session service cleanup complete")
+        
+        logger.info("✅ GAgent Financial Advisor API shutdown complete")
+        
+    except Exception as e:
+        logger.error(f"❌ Error during shutdown: {e}")
 
 # Create FastAPI app
 app = FastAPI(
@@ -276,3 +307,19 @@ async def root():
             "delete_session": "DELETE /sessions/{session_id}"
         }
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    # Load settings for local development
+    settings = get_settings()
+    
+    # Run the application
+    uvicorn.run(
+        "app:app",  # module:app
+        host=settings.host,
+        port=settings.port,
+        reload=settings.reload,
+        log_level=settings.log_level.lower(),
+        access_log=True,
+    )
