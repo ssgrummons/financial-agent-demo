@@ -39,7 +39,7 @@ class ChatGraph(BaseGraph[ChatState]):
             tools=self.tools,
             verbose=verbose,
             logprobs=logprobs,
-            streaming=False,
+            streaming=True,
             reasoning_effort=reasoning_effort,
             max_tokens=max_tokens,
         )

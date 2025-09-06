@@ -200,7 +200,10 @@ class GoogleModelFactory(ModelFactory):
             model_kwargs=model_kwargs,  # Put generation config here
             safety_settings=self.settings.SAFETY_SETTINGS,
             disable_streaming=not streaming,  # Use disable_streaming instead of streaming
-            verbose=verbose
+            streaming=streaming,
+            verbose=verbose,
+            temperature=self.settings.TEMPERATURE,
+            max_output_tokens=self.settings.MAX_TOKENS
         )
 
 class AnthropicModelFactory(ModelFactory):

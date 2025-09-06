@@ -1,6 +1,6 @@
 # backend/src/models/schemas.py
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
 
 class ChatRequest(BaseModel):
@@ -17,19 +17,93 @@ class ChatRequest(BaseModel):
         }
 
 class ChatResponse(BaseModel):
-    """Response model for chat endpoint (for non-streaming responses)."""
-    response: str = Field(..., description="Assistant's response")
-    session_id: Optional[str] = Field(None, description="Session identifier")
-    timestamp: Optional[datetime] = Field(None, description="Response timestamp")
+    """Response model for chat streaming events."""
     
+    type: Literal[
+        "assistant_response", 
+        "tool_execution", 
+        "thinking", 
+        "error", 
+        "done"
+    ] = Field(
+        ..., 
+        description="Type of streaming event",
+        examples=["assistant_response", "tool_execution", "thinking", "error", "done"]
+    )
+    
+    content: str = Field(
+        ..., 
+        description="Content of the streaming event",
+        examples=[
+            "Hello! How can I help you today?",
+            "Using financial analysis tools...",
+            "Processing your request...",
+            "An error occurred while processing",
+            ""
+        ]
+    )
+    
+    session_id: Optional[str] = Field(
+        None, 
+        description="Session identifier for the conversation",
+        examples=["9fb02f00-f46e-467d-87e2-24b66b62213d"]
+    )
+    
+    timestamp: Optional[datetime] = Field(
+        None, 
+        description="Timestamp when the event was generated"
+    )
+    
+    metadata: Optional[Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Additional metadata for the event",
+        examples=[
+            {"tool_name": "financial_calculator"},
+            {"error_code": "RATE_LIMIT_EXCEEDED"},
+            {}
+        ]
+    )
+
     class Config:
+        # OpenAPI documentation
         json_schema_extra = {
-            "example": {
-                "response": "The current price of AAPL is $185.25 per share.",
-                "session_id": "123e4567-e89b-12d3-a456-426614174000",
-                "timestamp": "2025-01-15T10:30:00Z"
-            }
+            "examples": [
+                {
+                    "type": "assistant_response",
+                    "content": "Based on your portfolio, I recommend diversifying into tech stocks.",
+                    "session_id": "9fb02f00-f46e-467d-87e2-24b66b62213d",
+                    "timestamp": "2025-01-15T10:30:00Z",
+                    "metadata": {}
+                },
+                {
+                    "type": "tool_execution", 
+                    "content": "Analyzing market data...",
+                    "session_id": "9fb02f00-f46e-467d-87e2-24b66b62213d",
+                    "timestamp": "2025-01-15T10:30:00Z",
+                    "metadata": {"tool_name": "market_analyzer"}
+                },
+                {
+                    "type": "done",
+                    "content": "",
+                    "session_id": "9fb02f00-f46e-467d-87e2-24b66b62213d", 
+                    "timestamp": "2025-01-15T10:30:00Z",
+                    "metadata": {}
+                }
+            ]
         }
+        
+        # Ensure proper serialization
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
+        
+        # Help with OpenAPI generation
+        use_enum_values = True
+        validate_assignment = True
+        
+        # Schema customization for better codegen
+        title = "Chat Streaming Response"
+        description = "Server-sent event for chat streaming responses"
 
 class StreamChunk(BaseModel):
     """Model for streaming response chunks."""
