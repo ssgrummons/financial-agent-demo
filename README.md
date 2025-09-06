@@ -3,6 +3,10 @@
 
 To perform a multi-platform build fo the agent and push to docker hub.
 ```bash
+# Logout and re-login to make sure creds are fresh
+podman logout docker.io
+podman login docker.io
+
 # Build frontend for multiple platforms
 cd frontend
 podman build --platform linux/amd64,linux/arm64 --manifest samuelgrummons/gagent-frontend:latest .

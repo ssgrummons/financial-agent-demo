@@ -182,11 +182,8 @@ class GoogleModelFactory(ModelFactory):
         
         logging.info(f"Creating Google Gemini model: {model}, streaming: {streaming}")
         
-        # For Google models, put generation config in model_kwargs
-        model_kwargs = {
-            "temperature": self.settings.TEMPERATURE,
-            "max_output_tokens": max_output_tokens,
-        }
+        
+        model_kwargs = {}
         
         # Add Google-specific parameters if they're set
         if self.settings.TOP_K is not None:

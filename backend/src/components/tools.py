@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 from langchain_core.tools import BaseTool, tool
-from typing import List
+from langchain_experimental.tools import PythonREPLTool
+from typing import List, Optional
+import yfinance as yf
+import pandas as pd
+from datetime import datetime, timedelta
 
 class CustomToolSetBase(ABC):
     """
@@ -22,10 +26,118 @@ class FinanceTools(CustomToolSetBase):
         Initialize the FinanceTools
         """
         pass
+    
+    @tool
+    def get_stock_data(symbol: str, period: str = "1mo", info_type: str = "all") -> str:
+        """
+        Fetch stock data using Yahoo Finance.
+        
+        Args:
+            symbol: Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'TSLA')
+            period: Time period for historical data. Options: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
+            info_type: Type of information to return. Options: 'price', 'info', 'history', 'all'
+            
+        Returns:
+            String containing requested stock information
+        """
+        try:
+            ticker = yf.Ticker(symbol.upper())
+            result = []
+            
+            if info_type in ["price", "all"]:
+                # Get current price info
+                hist_1d = ticker.history(period="1d")
+                if not hist_1d.empty:
+                    current_price = hist_1d['Close'].iloc[-1]
+                    result.append(f"Current Price ({symbol}): ${current_price:.2f}")
+            
+            if info_type in ["info", "all"]:
+                # Get basic company information
+                info = ticker.info
+                company_name = info.get('longName', 'N/A')
+                market_cap = info.get('marketCap', 'N/A')
+                pe_ratio = info.get('trailingPE', 'N/A')
+                
+                result.append(f"Company: {company_name}")
+                if market_cap != 'N/A':
+                    result.append(f"Market Cap: ${market_cap:,}")
+                if pe_ratio != 'N/A':
+                    result.append(f"P/E Ratio: {pe_ratio:.2f}")
+            
+            if info_type in ["history", "all"]:
+                # Get historical data
+                hist = ticker.history(period=period)
+                if not hist.empty:
+                    result.append(f"\nHistorical Data ({period}):")
+                    result.append(f"Period Start: {hist.index[0].strftime('%Y-%m-%d')}")
+                    result.append(f"Period End: {hist.index[-1].strftime('%Y-%m-%d')}")
+                    result.append(f"Highest Price: ${hist['High'].max():.2f}")
+                    result.append(f"Lowest Price: ${hist['Low'].min():.2f}")
+                    result.append(f"Average Volume: {hist['Volume'].mean():,.0f}")
+                    
+                    # Calculate basic metrics
+                    returns = hist['Close'].pct_change().dropna()
+                    volatility = returns.std() * (252**0.5)  # Annualized volatility
+                    result.append(f"Annualized Volatility: {volatility:.2%}")
+            
+            return "\n".join(result)
+            
+        except Exception as e:
+            return f"Error fetching data for {symbol}: {str(e)}"
+    
+    @tool 
+    def compare_stocks(symbols: str, period: str = "3mo") -> str:
+        """
+        Compare performance of multiple stocks.
+        
+        Args:
+            symbols: Comma-separated stock symbols (e.g., 'AAPL,GOOGL,MSFT')
+            period: Time period for comparison (1mo, 3mo, 6mo, 1y, 2y)
+            
+        Returns:
+            String with comparative analysis of the stocks
+        """
+        try:
+            symbol_list = [s.strip().upper() for s in symbols.split(',')]
+            results = []
+            
+            for symbol in symbol_list:
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(period=period)
+                
+                if not hist.empty:
+                    start_price = hist['Close'].iloc[0]
+                    end_price = hist['Close'].iloc[-1]
+                    total_return = ((end_price - start_price) / start_price) * 100
+                    
+                    results.append({
+                        'symbol': symbol,
+                        'start_price': start_price,
+                        'end_price': end_price,
+                        'total_return': total_return
+                    })
+            
+            # Sort by performance
+            results.sort(key=lambda x: x['total_return'], reverse=True)
+            
+            output = [f"Stock Performance Comparison ({period}):"]
+            for i, stock in enumerate(results, 1):
+                output.append(
+                    f"{i}. {stock['symbol']}: {stock['total_return']:.2f}% "
+                    f"(${stock['start_price']:.2f} → ${stock['end_price']:.2f})"
+                )
+            
+            return "\n".join(output)
+            
+        except Exception as e:
+            return f"Error comparing stocks: {str(e)}"
         
     def load_tools(self) -> List[BaseTool]:
         """
         Load and return finance-related tools
         """
-        # Return empty list for now - you'll build this out later
-        return []
+        return [
+            self.get_stock_data,
+            self.compare_stocks,
+            PythonREPLTool(),
+        ]
