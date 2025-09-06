@@ -1,5 +1,5 @@
-from .document_processing import DocumentProcessingGraph
+from .chat_graph import ChatGraph
 
 __all__ = [
-    'DocumentProcessingGraph'
+    'ChatGraph'
 ]
