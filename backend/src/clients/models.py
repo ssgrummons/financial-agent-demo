@@ -176,42 +176,30 @@ class GoogleModelFactory(ModelFactory):
                      reasoning_effort: Optional[str] = 'minimal',
                      max_tokens: Optional[int] = None
                      ) -> BaseChatModel:
-        """Create a Google Gemini chat model instance.
-        
-        Args:
-            model_name: Optional model name to override the default from settings.
-            verbose: Optional verbose parameter.
-            streaming: Whether to enable streaming mode.
-            logprobs: Ignored for Google models.
-            reasoning_effort: Ignored for Google models.
-            max_tokens: Optional max tokens to override settings.
-            
-        Returns:
-            A configured ChatGoogleGenerativeAI instance.
-        """
+        """Create a Google Gemini chat model instance."""
         model = model_name or self.settings.GOOGLE_MODEL
         max_output_tokens = max_tokens or self.settings.MAX_TOKENS
         
         logging.info(f"Creating Google Gemini model: {model}, streaming: {streaming}")
         
-        # Build generation config
-        generation_config = {
+        # For Google models, put generation config in model_kwargs
+        model_kwargs = {
             "temperature": self.settings.TEMPERATURE,
             "max_output_tokens": max_output_tokens,
         }
         
         # Add Google-specific parameters if they're set
         if self.settings.TOP_K is not None:
-            generation_config["top_k"] = self.settings.TOP_K
+            model_kwargs["top_k"] = self.settings.TOP_K
         if self.settings.TOP_P is not None:
-            generation_config["top_p"] = self.settings.TOP_P
+            model_kwargs["top_p"] = self.settings.TOP_P
             
         return ChatGoogleGenerativeAI(
             google_api_key=self.settings.GOOGLE_API_KEY,
             model=model,
-            generation_config=generation_config,
+            model_kwargs=model_kwargs,  # Put generation config here
             safety_settings=self.settings.SAFETY_SETTINGS,
-            streaming=streaming,
+            disable_streaming=not streaming,  # Use disable_streaming instead of streaming
             verbose=verbose
         )
 

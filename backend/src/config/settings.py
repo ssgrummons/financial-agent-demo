@@ -2,7 +2,7 @@
 import yaml
 from pathlib import Path
 from functools import lru_cache
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
@@ -43,8 +43,8 @@ class Settings(BaseSettings):
     reload: bool = Field(default=False, description="Auto-reload on changes")
     
     # CORS settings
-    cors_origins: str = Field(
-        default="http://localhost:8501,http://frontend:8501",
+    CORS_ORIGINS: str = Field(
+        default="http://localhost:8501,http://localhost:3000",
         description="Comma-separated list of allowed CORS origins"
     )
     
@@ -123,23 +123,10 @@ class Settings(BaseSettings):
         except Exception as e:
             raise ValueError(f"Failed to load system prompt from {prompt_path}: {e}")
     
-    @field_validator('cors_origins', mode='before')
-    @classmethod
-    def parse_cors_origins(cls, v):
-        """Parse CORS origins from comma-separated string to list."""
-        print(f"DEBUG: cors_origins received: {v} (type: {type(v)})")
-        
-        if isinstance(v, str):
-            result = [origin.strip() for origin in v.split(',') if origin.strip()]
-            print(f"DEBUG: Parsed string to list: {result}")
-            return result
-        elif isinstance(v, list):
-            result = [str(origin).strip() for origin in v if str(origin).strip()]
-            print(f"DEBUG: Processed existing list: {result}")
-            return result
-        
-        # Fallback
-        return [str(v)] if v else []
+    @property
+    def allowed_origins(self) -> List[str]:
+        """Get list of allowed CORS origins."""
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
     
     def validate_api_keys(self) -> None:
         """Validate that required API keys are present based on configuration."""

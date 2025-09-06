@@ -30,7 +30,7 @@ class ChatGraph(BaseDocumentGraph[ChatState]):
     ):
         # Heavy‑weight objects must exist *before* the base class builds the graph.
         self.message_strategy = SingleImageStrategy()
-        self.tools = FinanceTools.load_tools()
+        self.tools = FinanceTools().load_tools()
         self.assistant = MultiModalAsssitant(
             message_strategy=self.message_strategy,
             provider=provider,

@@ -58,7 +58,6 @@ class BaseDocumentGraph(Generic[S], ABC):
             The graph instance with the common nodes added.
         """
         graph.add_node("validate_input", self.shared_nodes.validate_input)
-        graph.add_node("save_results", self.shared_nodes.save_results)
         graph.add_node("load_document_content", self.shared_nodes.load_document_content)
         graph.add_node("log_progress", self.shared_nodes.log_progress)
         return graph

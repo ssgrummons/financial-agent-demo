@@ -15,8 +15,17 @@ class CustomToolSetBase(ABC):
 
 class FinanceTools(CustomToolSetBase):
     """
-    Class containing the tools required for Coding
+    Class containing the tools required for Finance
     """
+    def __init__(self):
+        """
+        Initialize the FinanceTools
+        """
+        pass
+        
     def load_tools(self) -> List[BaseTool]:
         """
+        Load and return finance-related tools
         """
+        # Return empty list for now - you'll build this out later
+        return []
