@@ -50,7 +50,8 @@ class AssistantChunkProcessor(ChunkProcessor):
             tools_text = ", ".join(tool_names)
             content = f"Using {tools_text} to help with your request..."
             
-            async for event_chunk in emitter.emit_tool_execution(content, tool_name=tools_text):
+            # Fixed: Corrected argument order - tool_name first, then content
+            async for event_chunk in emitter.emit_tool_execution(tool_name=tools_text, content=content):
                 yield event_chunk
                 
         else:

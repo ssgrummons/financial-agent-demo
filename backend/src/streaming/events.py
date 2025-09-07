@@ -26,8 +26,8 @@ class EventType(Enum):
 @dataclass
 class StreamEvent:
     """Base class for all streaming events with enhanced functionality."""
-    type: str
     content: str
+    type: str = ""  # Made this have a default value
     session_id: Optional[str] = None
     timestamp: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -86,7 +86,7 @@ class AssistantResponseEvent(StreamEvent):
 @dataclass  
 class ToolExecutionEvent(StreamEvent):
     """Event for tool execution notifications."""
-    tool_name: Optional[str] = None  # Fixed: Made optional with default value
+    tool_name: Optional[str] = None
     execution_status: str = "starting"  # starting, running, completed, failed
     tool_input: Optional[Dict[str, Any]] = None
     
@@ -204,6 +204,7 @@ class EventEmitter:
         """Emit an assistant response event."""
         event = AssistantResponseEvent(
             content=content, 
+            type=EventType.ASSISTANT_RESPONSE.value,
             is_intermediate=is_intermediate,
             reasoning_step=reasoning_step,
             session_id=self.session_id, 
@@ -264,8 +265,8 @@ class EventEmitter:
     async def emit_completion(self, content: str = "Request completed", **kwargs) -> AsyncGenerator[str, None]:
         """Emit a completion event."""
         event = StreamEvent(
+            content=content,
             type=EventType.COMPLETION.value, 
-            content=content, 
             session_id=self.session_id, 
             **kwargs
         )
