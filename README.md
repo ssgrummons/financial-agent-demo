@@ -183,6 +183,95 @@ Agent Reasoning:
 - **API Testing**: FastAPI endpoint contract testing
 - **Session Testing**: Session management and state persistence testing
 
+## ⚖️ Ethics & Compliance in Financial AI
+
+### Regulatory Compliance Framework
+
+GAgent implements several key safeguards to address financial AI ethics and regulatory requirements:
+
+#### **Investment Advice Compliance**
+- **Disclaimer Protocol**: All financial responses begin with "This is educational information and not personalized financial advice"
+- **Professional Referrals**: Users are directed to consult licensed financial professionals for important decisions  
+- **Performance Disclaimers**: Clear messaging that "past performance doesn't guarantee future results"
+- **Conservative Guidance**: System emphasizes diversification, risk management, and long-term thinking over speculative recommendations
+
+#### **Fraud Detection Ethics**
+- **No Autonomous Actions**: Fraud detection provides risk assessments only - no automatic blocking or account actions
+- **Explainable Decisions**: Statistical analysis provides clear reasoning (z-scores, risk factors, thresholds)
+- **Bias Acknowledgment**: Current synthetic baseline data may introduce bias against:
+  - Night shift workers (midnight transactions flagged)
+  - International users (foreign transaction patterns)
+  - Atypical spending patterns
+- **Production Mitigation**: Real systems would require bias testing, diverse training data, and human oversight
+
+#### **Platform Safety Integration**
+- **Model-Level Safety**: Leverages Google Gemini's built-in safety and content filtering
+- **Input Validation**: Relies on LLM provider's adversarial input protection
+- **Upgrade Path**: Architecture supports adding dedicated input safety nodes for production deployment
+
+#### **Data Privacy & Security**
+- **No Personal Data Storage**: Demo uses synthetic user baselines only
+- **Environment Variable Security**: API keys and secrets properly externalized
+- **Container Isolation**: Docker architecture provides service-level isolation
+- **Production Requirements**: Would need encryption, audit logging, and compliance monitoring
+
+### Ethical Design Principles
+
+#### **Transparency**
+- **Tool Usage Disclosure**: Agent explains which tools it's using and why
+- **Decision Reasoning**: Financial calculations show methodology and assumptions
+- **Limitation Acknowledgment**: Clear about what the system can and cannot do
+
+#### **User Empowerment**
+- **Educational Focus**: Explains financial concepts rather than just providing answers
+- **Context Provision**: Tool results include background information and caveats
+- **Professional Guidance**: Consistently directs users to qualified advisors for major decisions
+
+#### **Risk Management**
+- **Conservative Defaults**: Avoids speculative or high-risk recommendations
+- **Uncertainty Communication**: Acknowledges when information is incomplete or assumptions are made
+- **Graduated Responses**: Risk assessments provide nuanced levels rather than binary decisions
+
+### Production Compliance Roadmap
+
+For enterprise deployment, additional safeguards would include:
+
+**Regulatory Compliance:**
+- SEC/FINRA registration considerations for investment advice
+- SOX compliance for financial data handling  
+- PCI DSS compliance for payment-related fraud detection
+- GDPR/CCPA compliance for personal financial data
+
+**Technical Safeguards:**
+- Comprehensive bias testing and fairness metrics
+- Human-in-the-loop workflows for high-risk decisions
+- Audit logging and decision traceability
+- Input sanitization and adversarial prompt detection
+- Rate limiting to prevent market manipulation
+
+**Governance Framework:**
+- Model governance and validation processes
+- Regular bias and fairness audits
+- Incident response procedures
+- Compliance monitoring and reporting
+
+## 💡 Financial AI Considerations
+
+### Risk-Free Rate Handling
+When calculating financial metrics like the Sharpe ratio, GAgent may request clarification on assumptions:
+
+**Example Exchange:**
+```
+User: "Calculate the Sharpe ratio for Google using 1-year historical data"
+Agent: "To calculate the Sharpe ratio for Google (GOOGL), I'll need a risk-free rate..."
+
+Recommended Response: "Use 4.5% as the risk-free rate (current 10-year Treasury rate)"
+```
+
+**Why This Happens**: Your agent demonstrates proper financial domain knowledge by recognizing that Sharpe ratios require a risk-free rate benchmark. This is actually a positive indicator of the system's financial sophistication.
+
+**Future Enhancement**: Could automatically fetch current Treasury rates via additional API integration.
+
 ## 📊 Example Queries
 
 ### Stock Analysis
@@ -201,7 +290,7 @@ Agent Reasoning:
 
 ### Complex Analysis
 ```
-"Plot Apple's stock trend and calculate its volatility"
+"Review Apple's stock trend and calculate its volatility"
 "Compare the risk-adjusted returns of Apple, Google, and Microsoft"
 "Analyze my portfolio's diversification if I hold 60% Apple, 30% Google, 10% bonds"
 ```
