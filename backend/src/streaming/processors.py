@@ -39,27 +39,24 @@ class AssistantChunkProcessor(ChunkProcessor):
         
         last_message = messages[-1]
         
-        # Check if this is a tool call or regular response
+        # First, stream any content from the AI message
+        content = getattr(last_message, 'content', '')
+        if content and content.strip():
+            async for event_chunk in emitter.emit_assistant_response(content):
+                yield event_chunk
+        
+        # Then, if there are tool calls, emit tool execution event
         if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
-            # Assistant is calling tools
             tool_names = []
             for tool_call in last_message.tool_calls:
                 tool_name = tool_call.get('name') if isinstance(tool_call, dict) else getattr(tool_call, 'name', 'unknown')
                 tool_names.append(tool_name)
             
             tools_text = ", ".join(tool_names)
-            content = f"Using {tools_text} to help with your request..."
+            tool_content = f"Using {tools_text}..."
             
-            # Fixed: Corrected argument order - tool_name first, then content
-            async for event_chunk in emitter.emit_tool_execution(tool_name=tools_text, content=content):
+            async for event_chunk in emitter.emit_tool_execution(tool_name=tools_text, content=tool_content):
                 yield event_chunk
-                
-        else:
-            # Regular assistant response - stream the content
-            content = getattr(last_message, 'content', str(last_message))
-            if content:
-                async for event_chunk in emitter.emit_assistant_response(content):
-                    yield event_chunk
 
 
 class ToolsChunkProcessor(ChunkProcessor):
