@@ -15,7 +15,6 @@ from .events import (
     ToolExecutionEvent,
     ThinkingEvent,
     ErrorEvent,
-    CompletionEvent,
     EventEmitter
 )
 
@@ -32,6 +31,5 @@ __all__ = [
     "ToolExecutionEvent", 
     "ThinkingEvent",
     "ErrorEvent",
-    "CompletionEvent",
     "EventEmitter"
 ]
