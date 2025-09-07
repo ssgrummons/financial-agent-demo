@@ -194,7 +194,6 @@ async def chat_stream(
             
             # Prepare initial state
             initial_state = {
-                "messages": [{"role": "user", "content": request.user_prompt}],
                 "session_id": request.session_id,
                 "user_id": "demo_user",
                 "user_prompt": request.user_prompt,
