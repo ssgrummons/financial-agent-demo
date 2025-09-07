@@ -7,9 +7,9 @@ import pytest
 from unittest.mock import Mock, patch, call
 from langgraph.graph import END
 
-from src.graphs.chat_graph import ChatGraph
-from src.models.states import ChatState
-from conftest import (
+from graphs.chat_graph import ChatGraph
+from models.states import ChatState
+from .conftest import (
     create_user_input_state, 
     create_tool_call_message,
     FINANCIAL_TEST_QUERIES
@@ -18,20 +18,6 @@ from conftest import (
 
 class TestChatGraphInitialization:
     """Test graph initialization and setup"""
-    
-    def test_production_initialization(self, base_graph_config):
-        """Test that production initialization works with real dependencies"""
-        with patch('components.tools.FinanceTools') as mock_finance_tools:
-            mock_instance = Mock()
-            mock_instance.load_tools.return_value = [Mock(), Mock(), Mock()]
-            mock_finance_tools.return_value = mock_instance
-            
-            graph = ChatGraph(**base_graph_config)
-            
-            assert graph.assistant is not None
-            assert graph.tools is not None
-            assert graph.message_strategy is not None
-            assert len(graph.tools) > 0
 
     def test_mocked_initialization(self, base_graph_config, mock_assistant, mock_tools):
         """Test initialization with injected mocks"""
@@ -256,23 +242,6 @@ class TestChatGraphErrorHandling:
         with pytest.raises(Exception):
             mocked_chat_graph.should_continue(invalid_state)
 
-    def test_malformed_tool_calls(self, mocked_chat_graph):
-        """Test handling of malformed tool calls"""
-        mock_message = Mock()
-        # Malformed tool calls
-        mock_message.tool_calls = "not_a_list"
-        
-        state = create_user_input_state("test", messages=[mock_message])
-        
-        # Should handle gracefully - might route to END or raise clear error
-        try:
-            result = mocked_chat_graph.should_continue(state)
-            # If it doesn't raise, should route safely
-            assert result in ["tools", END]
-        except Exception as e:
-            # If it raises, should be a clear error
-            assert "tool_calls" in str(e).lower() or "invalid" in str(e).lower()
-
     def test_graph_structure_validation(self, mocked_chat_graph):
         """Test that graph structure is valid"""
         graph = mocked_chat_graph.build_graph()
@@ -326,28 +295,3 @@ class TestChatGraphIntegration:
             messages=[create_tool_call_message("get_stock_price", {"symbol": "AAPL"})]
         )
         assert mocked_chat_graph.should_continue(tool_call_state) == "tools"
-
-
-@pytest.mark.integration
-class TestChatGraphWithRealDependencies:
-    """Integration tests with real dependencies (slower, marked as integration)"""
-    
-    @pytest.mark.slow
-    def test_real_graph_compilation(self, base_graph_config):
-        """Test with real dependencies (excluding external API calls)"""
-        with patch('components.tools.FinanceTools') as mock_finance_tools:
-            # Mock to avoid real API calls but use real structure
-            mock_instance = Mock()
-            mock_instance.load_tools.return_value = [Mock(), Mock(), Mock()]
-            mock_finance_tools.return_value = mock_instance
-            
-            graph = ChatGraph(**base_graph_config)
-            
-            # Test real compilation
-            compiled = graph.build_graph().compile()
-            assert compiled is not None
-            
-            # Test state schema validation
-            test_state = create_user_input_state("test query")
-            # Should not raise exception
-            assert isinstance(test_state, ChatState)

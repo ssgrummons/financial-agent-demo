@@ -11,13 +11,26 @@ from typing import Dict, Any, List
 import sys
 import os
 
-# Add the backend/src directory to Python path for imports
-backend_src_path = os.path.join(os.path.dirname(__file__), '..', 'backend', 'src')
-sys.path.insert(0, backend_src_path)
+# Simulate the Docker environment where we cd into the src directory
+# Add both the src directory AND change working directory context
+src_path = os.path.join(os.path.dirname(__file__), '..', 'src')
+sys.path.insert(0, src_path)
 
-from src.models.states import ChatState
-from src.graphs.chat_graph import ChatGraph
-from src.services.session_service import SessionService
+# Also add the parent directory so relative imports work
+parent_path = os.path.join(os.path.dirname(__file__), '..')
+sys.path.insert(0, parent_path)
+
+# Change the working directory for imports to match Docker behavior
+original_cwd = os.getcwd()
+os.chdir(src_path)
+
+# Now import - this will work because we're "in" the src directory
+from graphs.chat_graph import ChatGraph
+from models.states import ChatState  
+from services.session_service import SessionService
+
+# Change back to original directory after imports
+os.chdir(original_cwd)
 
 
 # ============================================================================
