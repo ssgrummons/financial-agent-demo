@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from langchain_core.tools import BaseTool, tool
 from langchain_experimental.tools import PythonREPLTool
-from typing import List, Optional
+from typing import List
 import yfinance as yf
-import pandas as pd
-from datetime import datetime, timedelta
+from .fraud.baseline import get_user_baseline
+from .fraud.analyzer import StatisticalFraudAnalyzer
+import json
+
 
 class CustomToolSetBase(ABC):
     """
@@ -132,6 +134,72 @@ class FinanceTools(CustomToolSetBase):
         except Exception as e:
             return f"Error comparing stocks: {str(e)}"
         
+    @tool
+    def detect_fraud_statistical(transaction_description: str, user_id: str = "default") -> str:
+        """
+        Analyze a transaction for fraud using statistical anomaly detection.
+        
+        Compares transaction patterns against user's historical spending baseline
+        to identify suspicious activity using statistical measures.
+        
+        Args:
+            transaction_description: Natural language description of the transaction
+                                (e.g., "Transfer of $5,000 to unknown account at midnight")
+            user_id: User identifier for personalized baseline (defaults to "default")
+        
+        Returns:
+            JSON string containing risk analysis with score, flags, and recommendation
+        """
+        try:
+            # Initialize analyzer and get user baseline
+            analyzer = StatisticalFraudAnalyzer()
+            user_baseline = get_user_baseline(user_id)
+            
+            # Parse the transaction description
+            parsed_transaction = analyzer.parse_transaction_description(transaction_description)
+            
+            # Perform statistical analysis
+            analysis_result = analyzer.analyze_transaction(parsed_transaction, user_baseline)
+            
+            # Format the response for the AI agent
+            response = {
+                "transaction": transaction_description,
+                "risk_assessment": {
+                    "risk_score": analysis_result["risk_score"],
+                    "risk_level": analysis_result["risk_level"], 
+                    "recommendation": analysis_result["recommendation"]
+                },
+                "anomaly_detection": {
+                    "flags": analysis_result["anomaly_flags"],
+                    "statistical_measures": analysis_result["statistical_measures"]
+                },
+                "parsed_details": {
+                    "amount": parsed_transaction["amount"],
+                    "time": f"{parsed_transaction['hour']}:00 ({parsed_transaction['time_description']})",
+                    "recipient": parsed_transaction["recipient"],
+                    "transaction_type": parsed_transaction["transaction_type"]
+                },
+                "user_baseline_summary": {
+                    "typical_amount_range": f"${user_baseline.amount_mean:.0f} ± ${user_baseline.amount_std:.0f}",
+                    "max_typical_amount": f"${user_baseline.max_typical_amount}",
+                    "common_hours": f"{min(user_baseline.typical_hours)}-{max(user_baseline.typical_hours)}"
+                }
+            }
+            
+            return json.dumps(response, indent=2)
+            
+        except Exception as e:
+            return json.dumps({
+                "error": f"Failed to analyze transaction: {str(e)}",
+                "transaction": transaction_description,
+                "risk_assessment": {
+                    "risk_score": 0,
+                    "risk_level": "ERROR",
+                    "recommendation": "Unable to process - manual review required"
+                }
+            }, indent=2)
+
+        
     def load_tools(self) -> List[BaseTool]:
         """
         Load and return finance-related tools
@@ -162,4 +230,5 @@ class FinanceTools(CustomToolSetBase):
             self.get_stock_data,
             self.compare_stocks,
             PythonREPLTool(),
+            self.detect_fraud_statistical
         ]
