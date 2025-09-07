@@ -136,6 +136,28 @@ class FinanceTools(CustomToolSetBase):
         """
         Load and return finance-related tools
         """
+        description = """
+        A Python shell for executing Python commands and calculations.
+
+        AVAILABLE MODULES: Only use these modules - others will cause import errors:
+        - Standard library: os, sys, json, csv, datetime, time, math, random, re, collections, itertools, functools, pathlib, urllib, http, sqlite3, logging
+        - Data science: pandas, numpy, matplotlib (if available)
+        - Other: requests (if available)
+
+        INPUT FORMAT: Valid Python code. Use print() to display results.
+
+        RESTRICTIONS: 
+        - Do NOT import or attempt to use modules not listed above
+        - Do NOT create fictional modules like 'gagent' 
+        - Stick to the available modules only
+
+        Example usage:
+        - import pandas as pd
+        - import numpy as np  
+        - import math
+        - result = math.sqrt(16); print(result)
+        """
+        self.repltool = PythonREPLTool(description=description)
         return [
             self.get_stock_data,
             self.compare_stocks,

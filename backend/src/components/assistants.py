@@ -72,29 +72,24 @@ class MultiModalAsssitant:
             
             logger.debug(f"Assistant called with {len(messages)} existing messages")
             
-            # Check if we need to add system message (smart detection)
+            # Ensure system message exists
             if not messages or not isinstance(messages[0], SystemMessage):
                 system_prompt = state.get("system_prompt", "You are a helpful AI Assistant.")
                 messages = [SystemMessage(content=system_prompt)] + messages
                 logger.debug("Added system message to conversation")
             
-            # If this is the very first call (only system message), add user content
-            if len(messages) == 1 and isinstance(messages[0], SystemMessage):
-                logger.debug("First call detected - adding user content")
-                messages.extend(self._build_user_messages(state))
-            
-            # Debug: Log message types for troubleshooting
-            for i, msg in enumerate(messages):
-                msg_type = type(msg).__name__
-                content_preview = getattr(msg, 'content', '')[:50] + "..." if len(getattr(msg, 'content', '')) > 50 else getattr(msg, 'content', '')
-                tool_calls = len(getattr(msg, 'tool_calls', [])) if hasattr(msg, 'tool_calls') and getattr(msg, 'tool_calls') else 0
-                logger.debug(f"Message {i}: {msg_type} - Content: '{content_preview}' - Tool calls: {tool_calls}")
+            # Always check for new user input and add it
+            if self._has_new_user_input(state):
+                new_user_messages = self._build_user_messages(state)
+                messages.extend(new_user_messages)
+                state["user_prompt"] = None
+                logger.debug(f"Added {len(new_user_messages)} new user messages")
             
             # Invoke the model with current messages
             response = self.chat_model.invoke(messages)
             logger.info("Model response received successfully")
 
-            # Add response to messages
+            # Update state with all messages including the response
             messages.append(response)
             state["messages"] = messages
             return state
@@ -106,12 +101,16 @@ class MultiModalAsssitant:
             state["messages"].append(AIMessage(content=self._handle_error(e)))
             return state
 
+    def _has_new_user_input(self, state: Dict[str, Any]) -> bool:
+        """Check if there's new user input to process"""
+        return bool(state.get("user_prompt") or state.get("image_data"))
+
     def _build_user_messages(self, state: Dict[str, Any]) -> List:
-        """Build user messages for first call"""
+        """Build user messages from current state input"""
         messages = []
         user_prompt = state.get("user_prompt", "")
         
-        # Add user content
+        # Handle multimodal input (images + text)
         if state.get("image_data"):
             processing_cfg = state.get("processing_config", {})
             detail_level = processing_cfg.get("detail_level", "low")
@@ -121,10 +120,12 @@ class MultiModalAsssitant:
                 context=user_prompt
             )
             messages.extend(image_messages)
-            logger.debug(f"Added {len(image_messages)} image messages via strategy")
-        else:
+            logger.debug(f"Built {len(image_messages)} multimodal messages")
+        
+        # Handle text-only input
+        elif user_prompt:
             messages.append(HumanMessage(content=user_prompt))
-            logger.debug("Added text-only user message")
+            logger.debug("Built text-only user message")
         
         return messages
     
