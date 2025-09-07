@@ -28,21 +28,39 @@ class ChatGraph(BaseGraph[ChatState]):
         logprobs: bool,
         reasoning_effort: str,
         max_tokens: int,
+        # Optional dependency injection parameters
+        message_strategy=None,
+        tools=None,
+        assistant=None,
+        finance_tools_factory=None,
     ):
-        # Heavy‑weight objects must exist *before* the base class builds the graph.
-        self.message_strategy = SingleImageStrategy()
-        self.tools = FinanceTools().load_tools()
-        self.assistant = MultiModalAsssitant(
-            message_strategy=self.message_strategy,
-            provider=provider,
-            model=model,
-            tools=self.tools,
-            verbose=verbose,
-            logprobs=logprobs,
-            streaming=True,
-            reasoning_effort=reasoning_effort,
-            max_tokens=max_tokens,
-        )
+        # Allow injection of message strategy, with fallback to default
+        self.message_strategy = message_strategy or SingleImageStrategy()
+        
+        # Allow injection of tools, with fallback to default factory
+        if tools is not None:
+            self.tools = tools
+        elif finance_tools_factory is not None:
+            self.tools = finance_tools_factory().load_tools()
+        else:
+            self.tools = FinanceTools().load_tools()
+        
+        # Allow injection of complete assistant, with fallback to construction
+        if assistant is not None:
+            self.assistant = assistant
+        else:
+            self.assistant = MultiModalAsssitant(
+                message_strategy=self.message_strategy,
+                provider=provider,
+                model=model,
+                tools=self.tools,
+                verbose=verbose,
+                logprobs=logprobs,
+                streaming=True,
+                reasoning_effort=reasoning_effort,
+                max_tokens=max_tokens,
+            )
+        
         super().__init__(state_schema=ChatState)
 
     # ------------------------------------------------------------------
