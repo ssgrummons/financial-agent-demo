@@ -1,6 +1,9 @@
 services:
   backend:
     image: samuelgrummons/gagent-backend:latest
+    build:
+      context: ./backend  # or wherever your backend Dockerfile is
+      dockerfile: Dockerfile
     container_name: gagent-backend
     ports:
       - "8000:8000"
@@ -17,6 +20,9 @@ services:
 
   frontend:
     image: samuelgrummons/gagent-frontend:latest
+    build:
+      context: ./frontend  # or wherever your frontend Dockerfile is
+      dockerfile: Dockerfile
     container_name: gagent-frontend
     ports:
       - "8501:8501"

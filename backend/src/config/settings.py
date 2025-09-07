@@ -5,6 +5,9 @@ from functools import lru_cache
 from typing import Optional, Dict, Any, List
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AssistantConfig(BaseSettings):
     """Assistant configuration from YAML."""
@@ -89,6 +92,7 @@ class Settings(BaseSettings):
         
         if not config_path.exists():
             # Return default config if file doesn't exist
+            logger.info("No config file present, loading default config")
             return {
                 "assistant_config": AssistantConfig(),
                 "processing_config": ProcessingConfig()
@@ -101,7 +105,7 @@ class Settings(BaseSettings):
             # Parse nested configs
             assistant_data = yaml_data.get('assistant_config', {})
             processing_data = yaml_data.get('processing_config', {})
-            
+            logger.info("Configuration loaded from config.yaml")
             return {
                 "assistant_config": AssistantConfig(**assistant_data),
                 "processing_config": ProcessingConfig(**processing_data)

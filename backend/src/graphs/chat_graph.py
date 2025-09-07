@@ -55,7 +55,7 @@ class ChatGraph(BaseGraph[ChatState]):
 
         # ---- Node definitions -----------------------------------------
         graph.add_node("assistant", self.assistant)
-        graph.add_node("tools", ToolNode(tools=self.tools))
+        graph.add_node("tools", self.execute_tools)
 
         # ---- Flow wiring -----------------------------------------------
         graph.add_edge(START, "assistant")
@@ -91,3 +91,22 @@ class ChatGraph(BaseGraph[ChatState]):
         
         logger.debug("No tool calls found, routing to END")
         return END
+    
+    def execute_tools(self, state: ChatState) -> ChatState:
+        """Wrapper around ToolNode to ensure proper state handling"""
+        # Use the built-in ToolNode but ensure proper state return
+        tool_node = ToolNode(tools=self.tools)
+        result = tool_node.invoke(state)
+        
+        # Ensure we return the full state, not just messages
+        if isinstance(result, dict) and "messages" in result:
+            # Get existing messages and create a new list
+            existing_messages = list(state["messages"])  # Copy existing messages
+            
+            # Extend with new tool messages (don't append the whole result dict)
+            existing_messages.extend(result["messages"])  # Add tool results
+            
+            # Return updated state with all messages
+            return {**state, "messages": existing_messages}
+        
+        return result

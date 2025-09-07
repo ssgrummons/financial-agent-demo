@@ -68,51 +68,77 @@ class MultiModalAsssitant:
         Main Node Function - Can be used directly in LangGraph
         """
         try:
-            messages = state["messages"]
-            system_prompt = state.get("system_prompt", "You are a helpful AI Assistant.")
-            user_prompt = state.get("user_prompt", "")
+            messages = state.get("messages", [])
+            
+            logger.debug(f"Assistant called with {len(messages)} existing messages")
+            
+            # Check if we need to add system message (smart detection)
             if not messages or not isinstance(messages[0], SystemMessage):
+                system_prompt = state.get("system_prompt", "You are a helpful AI Assistant.")
                 messages = [SystemMessage(content=system_prompt)] + messages
-
-            if state.get("image_data"):
-                processing_cfg = state.get("processing_config", {})
-                detail_level = processing_cfg.get("detail_level", "low")
-                image_messages = self.message_strategy.build_messages(
-                    image_data=state["image_data"],
-                    detail_level=detail_level,
-                    context=user_prompt
-                )
-                messages.extend(image_messages)
-                logger.debug(f"Added {len(image_messages)} image messages via strategy")
-            else:
-                logger.debug("No documents to process")
-                messages.append(HumanMessage(content=user_prompt))
+                logger.debug("Added system message to conversation")
             
+            # If this is the very first call (only system message), add user content
+            if len(messages) == 1 and isinstance(messages[0], SystemMessage):
+                logger.debug("First call detected - adding user content")
+                messages.extend(self._build_user_messages(state))
+            
+            # Debug: Log message types for troubleshooting
+            for i, msg in enumerate(messages):
+                msg_type = type(msg).__name__
+                content_preview = getattr(msg, 'content', '')[:50] + "..." if len(getattr(msg, 'content', '')) > 50 else getattr(msg, 'content', '')
+                tool_calls = len(getattr(msg, 'tool_calls', [])) if hasattr(msg, 'tool_calls') and getattr(msg, 'tool_calls') else 0
+                logger.debug(f"Message {i}: {msg_type} - Content: '{content_preview}' - Tool calls: {tool_calls}")
+            
+            # Invoke the model with current messages
             response = self.chat_model.invoke(messages)
-            logger.info("Model response recieved successfully")
+            logger.info("Model response received successfully")
 
+            # Add response to messages
             messages.append(response)
-            
             state["messages"] = messages
             return state
 
         except Exception as e:
             logger.error(f"Error in MultiModalAssistant: {e}")
-            messages.append(AIMessage(content=self._handle_error(e)))
-            state["messages"] = messages
+            if "messages" not in state:
+                state["messages"] = []
+            state["messages"].append(AIMessage(content=self._handle_error(e)))
             return state
+
+    def _build_user_messages(self, state: Dict[str, Any]) -> List:
+        """Build user messages for first call"""
+        messages = []
+        user_prompt = state.get("user_prompt", "")
+        
+        # Add user content
+        if state.get("image_data"):
+            processing_cfg = state.get("processing_config", {})
+            detail_level = processing_cfg.get("detail_level", "low")
+            image_messages = self.message_strategy.build_messages(
+                image_data=state["image_data"],
+                detail_level=detail_level,
+                context=user_prompt
+            )
+            messages.extend(image_messages)
+            logger.debug(f"Added {len(image_messages)} image messages via strategy")
+        else:
+            messages.append(HumanMessage(content=user_prompt))
+            logger.debug("Added text-only user message")
+        
+        return messages
     
-    def _handle_error(self, error: Exception) -> Dict[str, Any]:
+    def _handle_error(self, error: Exception) -> str:
         """
         Clean Error Handling
         """
         error_str = str(error).lower()
         if "context_length_exceeded" in error_str:
-            message = "The conversation has become too long.  Please start a new session"
-        if "image" in error_str:
+            message = "The conversation has become too long. Please start a new session"
+        elif "image" in error_str:
             message = "I couldn't process the images. Please try uploading them again."
         else:
             logger.error(f"Unexpected error: {error}")
-            message = "I encountered an error processing your request.  Please try again."
+            message = "I encountered an error processing your request. Please try again."
         
         return message

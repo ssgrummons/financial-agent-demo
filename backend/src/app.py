@@ -198,6 +198,7 @@ async def chat_stream(
                 "session_id": request.session_id,
                 "user_id": "demo_user",
                 "user_prompt": request.user_prompt,
+                "system_prompt": app.state.settings.system_prompt
             }
             
             # Stream the graph execution - that's it!
