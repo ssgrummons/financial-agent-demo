@@ -1,0 +1,23 @@
+# Build and Push to Dockerhub using Podman
+
+To perform a multi-platform build fo the agent and push to docker hub.
+```bash
+# Log into Docker hub
+docker login
+
+# Logout and re-login to make sure creds are fresh
+podman logout docker.io
+podman login docker.io
+
+# Build frontend for multiple platforms
+cd frontend
+podman build --platform linux/amd64,linux/arm64 --manifest samuelgrummons/gagent-frontend:latest .
+podman manifest push samuelgrummons/gagent-frontend:latest docker://docker.io/samuelgrummons/gagent-frontend:latest
+cd ..
+
+# Build backend for multiple platforms  
+cd backend
+podman build --platform linux/amd64,linux/arm64 --manifest samuelgrummons/gagent-backend:v2 .
+podman manifest push samuelgrummons/gagent-backend:v2 docker://docker.io/samuelgrummons/gagent-backend:v2
+cd ..
+```
