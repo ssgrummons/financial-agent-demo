@@ -327,6 +327,11 @@ Recommended Response: "Use 4.5% as the risk-free rate (current 10-year Treasury 
 - **Production**: Would require Kubernetes, load balancing, and service mesh
 - **Benefit**: Easy local setup and testing
 
+### 7. Tool Selection
+- **Current**: PythonREPLTool for complex calculation
+- **Production**: Modal or AWS Lambda with container images
+- **Trade-off**: PythonREPLTool was easy to implement and free but experimental
+
 ## 🧪 Testing
 
 Run the test suite:
