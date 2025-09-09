@@ -17,7 +17,7 @@ cd ..
 
 # Build backend for multiple platforms  
 cd backend
-podman build --platform linux/amd64,linux/arm64 --manifest samuelgrummons/gagent-backend:v2 .
-podman manifest push samuelgrummons/gagent-backend:v2 docker://docker.io/samuelgrummons/gagent-backend:v2
+podman build --platform linux/amd64,linux/arm64 --manifest samuelgrummons/gagent-backend:latest .
+podman manifest push samuelgrummons/gagent-backend:latest docker://docker.io/samuelgrummons/gagent-backend:latest
 cd ..
 ```
