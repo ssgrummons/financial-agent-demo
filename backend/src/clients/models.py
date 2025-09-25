@@ -11,7 +11,7 @@ from langchain_anthropic import ChatAnthropic
 import logging
 
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = logger.getLogger(__name__)
         
 class AzureOpenAISettings(BaseSettings):
     """Settings for Azure OpenAI model configuration"""
@@ -82,9 +82,26 @@ class ModelFactory(ABC):
 class AzureOpenAIModelFactory(ModelFactory):
     """Factory for creating Azure OpenAI chat models."""
     
+    # Define which models use the new parameter
+    NEW_TOKEN_PARAM_MODELS = {
+        'o1-preview', 'o1-mini', 'o3-mini', 'o4-mini', 
+        'gpt-4o-mini-2024-07-18'  # Add specific versions as needed
+    }
+    
     def __init__(self, settings: Optional[AzureOpenAISettings] = None):
         """Initialize the factory with settings."""
         self.settings = settings or AzureOpenAISettings()
+        
+    def _get_token_params(self, deployment_name: str, max_tokens: int) -> dict:
+        """Get the correct token parameter based on model."""
+        # Check if this deployment uses the new parameter
+        uses_new_param = any(model in deployment_name.lower() 
+                           for model in self.NEW_TOKEN_PARAM_MODELS)
+        
+        if uses_new_param:
+            return {'max_completion_tokens': max_tokens}
+        else:
+            return {'max_tokens': max_tokens}
         
     def create_model(self, 
                     model_name: Optional[str] = None, 
@@ -94,31 +111,32 @@ class AzureOpenAIModelFactory(ModelFactory):
                     reasoning_effort: Optional[str] = 'minimal',
                     max_tokens: Optional[int] = None
                     ) -> BaseChatModel:
-        """Create a Google Gemini chat model instance."""
-        model = model_name or self.settings.GOOGLE_MODEL
-        max_output_tokens = max_tokens or self.settings.MAX_TOKENS
+        """Create a Azure OpenAI chat model instance."""
+        deployment_name = model_name or self.settings.AZURE_OPENAI_DEPLOYMENT_NAME
+        max_tokens = max_tokens or self.settings.MAX_TOKENS
         
-        logging.info(f"Creating Google Gemini model: {model}, streaming: {streaming}")
+        logger.info(f"Creating Azure OpenAI model with deployment: {deployment_name}, streaming: {streaming}")
         
-        # Build model_kwargs for additional parameters
-        model_kwargs = {}
+        # Get the correct token parameter
+        token_params = self._get_token_params(deployment_name, max_tokens)
         
-        # Add Google-specific parameters if they're set
-        if self.settings.TOP_K is not None:
-            model_kwargs["top_k"] = self.settings.TOP_K
-        if self.settings.TOP_P is not None:
-            model_kwargs["top_p"] = self.settings.TOP_P
-            
-        return ChatGoogleGenerativeAI(
-            google_api_key=self.settings.GOOGLE_API_KEY,
-            model=model,
-            model_kwargs=model_kwargs,
-            safety_settings=self.settings.SAFETY_SETTINGS,
-            disable_streaming=not streaming,  # Use disable_streaming instead of streaming
-            verbose=verbose,
-            temperature=self.settings.TEMPERATURE,  # This is a direct parameter
-            max_output_tokens=max_output_tokens,     # This is a direct parameter
-        )
+        # Base parameters
+        params = {
+            'api_key': self.settings.AZURE_OPENAI_API_KEY,
+            'azure_deployment': deployment_name,
+            'api_version': self.settings.AZURE_OPENAI_API_VERSION,
+            'azure_endpoint': self.settings.AZURE_OPENAI_ENDPOINT,
+            'temperature': self.settings.TEMPERATURE,
+            'verbose': verbose,
+            'streaming': streaming,
+            'logprobs': logprobs,
+            'reasoning_effort': reasoning_effort,
+            **token_params  # Add the correct token parameter
+        }
+        
+        model = AzureChatOpenAI(**params)
+        logger.info("Azure OpenAI model creation completed")
+        return model
 
 class OllamaModelFactory(ModelFactory):
     """Factory for creating Ollama chat models."""
@@ -146,7 +164,7 @@ class OllamaModelFactory(ModelFactory):
         """
         model=(model_name or self.settings.OLLAMA_MODEL).strip()
         max_tokens = max_tokens or self.settings.MAX_TOKENS
-        logging.info(f"Calling Ollama model with name: {model}")
+        logger.info(f"Calling Ollama model with name: {model}")
 
         return ChatOllama(
             model=model,
@@ -176,7 +194,7 @@ class GoogleModelFactory(ModelFactory):
         model = model_name or self.settings.GOOGLE_MODEL
         max_output_tokens = max_tokens or self.settings.MAX_TOKENS
         
-        logging.info(f"Creating Google Gemini model: {model}, streaming: {streaming}")
+        logger.info(f"Creating Google Gemini model: {model}, streaming: {streaming}")
         
         
         model_kwargs = {}
@@ -230,7 +248,7 @@ class AnthropicModelFactory(ModelFactory):
         model = model_name or self.settings.ANTHROPIC_MODEL
         max_tokens_output = max_tokens or self.settings.MAX_TOKENS
         
-        logging.info(f"Creating Anthropic Claude model: {model}, streaming: {streaming}")
+        logger.info(f"Creating Anthropic Claude model: {model}, streaming: {streaming}")
         
         # Build kwargs for Anthropic-specific parameters
         kwargs = {
