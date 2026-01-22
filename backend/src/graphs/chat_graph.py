@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 
 class ChatGraph(BaseGraph[ChatState]):
     """
-    Graph that validates, converts TIFF → PNG, runs the assistant,
-    extracts Markdown, and saves the result.
+    Configurable Basic chat graph with tool usage
     """
 
     def __init__(
