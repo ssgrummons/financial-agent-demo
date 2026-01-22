@@ -391,3 +391,12 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: marks tests as slow running"
     )
+    
+# backend/conftest.py (add this to enable integration tests)
+def pytest_addoption(parser):
+    parser.addoption(
+        "--integration",
+        action="store_true",
+        default=False,
+        help="run integration tests"
+    )

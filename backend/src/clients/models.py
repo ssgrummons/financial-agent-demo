@@ -1,17 +1,19 @@
 from abc import ABC, abstractmethod
-from typing import Optional, List, Any, AsyncGenerator
+from typing import Optional, List, Any, AsyncGenerator, Dict
 from pydantic_settings import BaseSettings
 from langchain.chat_models.base import BaseChatModel
-from langchain.schema import BaseMessage, SystemMessage
+from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.tools import BaseTool
 from langchain_openai import AzureChatOpenAI
 from langchain_ollama import ChatOllama
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_anthropic import ChatAnthropic
+from langchain_aws import ChatBedrock
+from src.clients.capability_map import BedrockModelParameters
 import logging
 
 # Configure logging
-logger = logger.getLogger(__name__)
+logger = logging.getLogger(__name__)
         
 class AzureOpenAISettings(BaseSettings):
     """Settings for Azure OpenAI model configuration"""
@@ -65,6 +67,22 @@ class AnthropicSettings(BaseSettings):
     TOP_K: Optional[int] = None
     TOP_P: Optional[float] = None
     STOP_SEQUENCES: Optional[List[str]] = None
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "ignore"
+
+class AWSBedrockSettings(BaseSettings):
+    """Settings for AWS Bedrock model configuration"""
+    AWS_REGION: str = "us-east-1"
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    BEDROCK_MODEL_ID: Optional[str] = None
+    MAX_TOKENS: int = 4000
+    TEMPERATURE: float = 0.7
+    TOP_P: Optional[float] = None
+    TOP_K: Optional[int] = None
     
     class Config:
         env_file = ".env"
@@ -269,6 +287,130 @@ class AnthropicModelFactory(ModelFactory):
             kwargs["stop"] = self.settings.STOP_SEQUENCES
             
         return ChatAnthropic(**kwargs)
+
+class AWSBedrockModelFactory(ModelFactory):
+    """Factory for creating AWS Bedrock chat models with automatic parameter translation"""
+    
+    def __init__(self, settings: Optional[AWSBedrockSettings] = None):
+        """Initialize the factory with settings"""
+        self.settings = settings or AWSBedrockSettings()
+    
+    def _translate_parameters(self, 
+                            model_id: str,
+                            max_tokens: Optional[int] = None,
+                            temperature: Optional[float] = None,
+                            top_p: Optional[float] = None,
+                            top_k: Optional[int] = None,
+                            streaming: bool = False,
+                            verbose: bool = True,
+                            logprobs: Optional[bool] = None,
+                            reasoning_effort: Optional[str] = None
+                            ) -> tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        Translate generic parameters to model-specific parameters.
+        
+        Returns:
+            Tuple of (model_kwargs, bedrock_kwargs)
+            - model_kwargs: Parameters that go into model_kwargs for the Bedrock API
+            - bedrock_kwargs: Parameters that go directly to ChatBedrock constructor
+        """
+        param_config = BedrockModelParameters.get_parameter_config(model_id)
+        
+        # These are the standard parameters that can be passed to the model
+        standard_params = {
+            "max_tokens": max_tokens or self.settings.MAX_TOKENS,
+            "temperature": temperature if temperature is not None else self.settings.TEMPERATURE,
+            "top_p": top_p if top_p is not None else self.settings.TOP_P,
+            "top_k": top_k if top_k is not None else self.settings.TOP_K,
+            "logprobs": logprobs,
+            "reasoning_effort": reasoning_effort,
+        }
+        
+        # ChatBedrock constructor parameters
+        bedrock_params = {
+            "streaming": streaming,
+            "verbose": verbose,
+        }
+        
+        # Translate and filter parameters for model_kwargs
+        model_kwargs = {}
+        for generic_name, value in standard_params.items():
+            # Skip None values
+            if value is None:
+                continue
+            
+            # Get the model-specific parameter name (or None if not supported)
+            model_param_name = param_config.get(generic_name)
+            
+            if model_param_name is None:
+                logger.debug(f"Parameter '{generic_name}' not supported by {model_id}, skipping")
+                continue
+            
+            # Translate and include
+            model_kwargs[model_param_name] = value
+            logger.debug(f"Translated {generic_name}={value} -> {model_param_name}={value}")
+        
+        # Filter bedrock_params (these are passthrough)
+        filtered_bedrock_params = {}
+        for param_name, value in bedrock_params.items():
+            model_param_name = param_config.get(param_name)
+            if model_param_name is not None:
+                filtered_bedrock_params[model_param_name] = value
+            else:
+                logger.debug(f"Parameter '{param_name}' not supported by {model_id}, skipping")
+        
+        return model_kwargs, filtered_bedrock_params
+    
+    def create_model(self,
+                    model_name: Optional[str] = None,
+                    verbose: Optional[bool] = True,
+                    streaming: Optional[bool] = False,
+                    logprobs: Optional[bool] = False,
+                    reasoning_effort: Optional[str] = None,
+                    max_tokens: Optional[int] = None,
+                    temperature: Optional[float] = None,
+                    top_p: Optional[float] = None,
+                    top_k: Optional[int] = None
+                    ) -> BaseChatModel:
+        """Create an AWS Bedrock chat model instance with automatic parameter translation"""
+        
+        model_id = model_name or self.settings.BEDROCK_MODEL_ID
+        if not model_id:
+            raise ValueError("BEDROCK_MODEL_ID must be set either in settings or passed as model_name")
+        
+        logger.info(f"Creating AWS Bedrock model: {model_id}")
+        
+        # Translate parameters
+        model_kwargs, bedrock_kwargs = self._translate_parameters(
+            model_id=model_id,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            streaming=streaming,
+            verbose=verbose,
+            logprobs=logprobs,
+            reasoning_effort=reasoning_effort
+        )
+        
+        # Build credentials dict if provided
+        credentials = {}
+        if self.settings.AWS_ACCESS_KEY_ID:
+            credentials["aws_access_key_id"] = self.settings.AWS_ACCESS_KEY_ID
+        if self.settings.AWS_SECRET_ACCESS_KEY:
+            credentials["aws_secret_access_key"] = self.settings.AWS_SECRET_ACCESS_KEY
+        
+        # Create the model
+        model = ChatBedrock(
+            model_id=model_id,
+            region_name=self.settings.AWS_REGION,
+            model_kwargs=model_kwargs,
+            **bedrock_kwargs,
+            **credentials
+        )
+        
+        logger.info(f"AWS Bedrock model {model_id} created with model_kwargs: {model_kwargs}, bedrock_kwargs: {bedrock_kwargs}")
+        return model
 
 class ToolHandler(ABC):
     """Abstract base class for tool handling."""
