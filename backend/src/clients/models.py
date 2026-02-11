@@ -34,6 +34,7 @@ class OpenAISettings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o"  # Default model
     OPENAI_BASE_URL: Optional[str] = None  # For OpenAI-compatible endpoints
+    OPENAI_BASE_URL_TEMPLATE: Optional[str] = None  # Template with {model} placeholder
     OPENAI_ORGANIZATION: Optional[str] = None  # Optional organization ID
     MAX_TOKENS: int = 4000
     TEMPERATURE: float = 0.7
@@ -237,8 +238,14 @@ class OpenAIModelFactory(ModelFactory):
             **token_params  # Add the correct token parameter
         }
 
-        # Add optional base_url for OpenAI-compatible endpoints
-        if self.settings.OPENAI_BASE_URL:
+        # Handle base_url for OpenAI-compatible endpoints
+        # Priority: OPENAI_BASE_URL_TEMPLATE > OPENAI_BASE_URL
+        if self.settings.OPENAI_BASE_URL_TEMPLATE:
+            # Template includes {model} placeholder - substitute it
+            params['base_url'] = self.settings.OPENAI_BASE_URL_TEMPLATE.format(model=model)
+            logger.info(f"Using templated base URL: {params['base_url']}")
+        elif self.settings.OPENAI_BASE_URL:
+            # Static base URL - use as is
             params['base_url'] = self.settings.OPENAI_BASE_URL
             logger.info(f"Using custom base URL: {self.settings.OPENAI_BASE_URL}")
 
