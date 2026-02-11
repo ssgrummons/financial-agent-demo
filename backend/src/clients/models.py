@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 from langchain.chat_models.base import BaseChatModel
 from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.tools import BaseTool
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from langchain_ollama import ChatOllama
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_anthropic import ChatAnthropic
@@ -29,11 +29,29 @@ class AzureOpenAISettings(BaseSettings):
         case_sensitive = True
         extra = "ignore"
 
+class OpenAISettings(BaseSettings):
+    """Settings for OpenAI model configuration (works with OpenAI-compatible APIs)."""
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o"  # Default model
+    OPENAI_BASE_URL: Optional[str] = None  # For OpenAI-compatible endpoints
+    OPENAI_ORGANIZATION: Optional[str] = None  # Optional organization ID
+    MAX_TOKENS: int = 4000
+    TEMPERATURE: float = 0.7
+    TOP_P: Optional[float] = None
+    FREQUENCY_PENALTY: Optional[float] = None
+    PRESENCE_PENALTY: Optional[float] = None
+    STOP_SEQUENCES: Optional[List[str]] = None
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+        extra = "ignore"
+
 class OllamaSettings(BaseSettings):
     """Settings for Ollama model configuration."""
-    OLLAMA_MODEL: Optional[str] 
-    MAX_TOKENS: int 
-    TEMPERATURE: float 
+    OLLAMA_MODEL: Optional[str]
+    MAX_TOKENS: int
+    TEMPERATURE: float
     OLLAMA_HOST: str = "granite3.3"
 
     class Config:
@@ -156,9 +174,105 @@ class AzureOpenAIModelFactory(ModelFactory):
         logger.info("Azure OpenAI model creation completed")
         return model
 
+class OpenAIModelFactory(ModelFactory):
+    """Factory for creating OpenAI chat models (works with OpenAI-compatible APIs)."""
+
+    # Define which models use the new parameter
+    NEW_TOKEN_PARAM_MODELS = {
+        'o1-preview', 'o1-mini', 'o3-mini', 'o4-mini',
+        'gpt-4o-mini-2024-07-18'  # Add specific versions as needed
+    }
+
+    def __init__(self, settings: Optional[OpenAISettings] = None):
+        """Initialize the factory with settings."""
+        self.settings = settings or OpenAISettings()
+
+    def _get_token_params(self, model_name: str, max_tokens: int) -> dict:
+        """Get the correct token parameter based on model."""
+        # Check if this model uses the new parameter
+        uses_new_param = any(model in model_name.lower()
+                           for model in self.NEW_TOKEN_PARAM_MODELS)
+
+        if uses_new_param:
+            return {'max_completion_tokens': max_tokens}
+        else:
+            return {'max_tokens': max_tokens}
+
+    def create_model(self,
+                    model_name: Optional[str] = None,
+                    verbose: Optional[bool] = True,
+                    streaming: Optional[bool] = False,
+                    logprobs: Optional[bool] = False,
+                    reasoning_effort: Optional[str] = 'minimal',
+                    max_tokens: Optional[int] = None
+                    ) -> BaseChatModel:
+        """Create an OpenAI chat model instance.
+
+        Args:
+            model_name: Optional model name to override the default from settings.
+            verbose: Optional verbose parameter.
+            streaming: Whether to enable streaming mode.
+            logprobs: Whether to return log probabilities.
+            reasoning_effort: Reasoning effort for o1/o3 models.
+            max_tokens: Optional max tokens to override settings.
+
+        Returns:
+            A configured ChatOpenAI instance.
+        """
+        model = model_name or self.settings.OPENAI_MODEL
+        max_tokens_value = max_tokens or self.settings.MAX_TOKENS
+
+        logger.info(f"Creating OpenAI model: {model}, streaming: {streaming}")
+
+        # Get the correct token parameter
+        token_params = self._get_token_params(model, max_tokens_value)
+
+        # Base parameters
+        params = {
+            'api_key': self.settings.OPENAI_API_KEY,
+            'model': model,
+            'temperature': self.settings.TEMPERATURE,
+            'verbose': verbose,
+            'streaming': streaming,
+            **token_params  # Add the correct token parameter
+        }
+
+        # Add optional base_url for OpenAI-compatible endpoints
+        if self.settings.OPENAI_BASE_URL:
+            params['base_url'] = self.settings.OPENAI_BASE_URL
+            logger.info(f"Using custom base URL: {self.settings.OPENAI_BASE_URL}")
+
+        # Add optional organization
+        if self.settings.OPENAI_ORGANIZATION:
+            params['organization'] = self.settings.OPENAI_ORGANIZATION
+
+        # Add optional parameters
+        model_kwargs = {}
+        if self.settings.TOP_P is not None:
+            model_kwargs['top_p'] = self.settings.TOP_P
+        if self.settings.FREQUENCY_PENALTY is not None:
+            model_kwargs['frequency_penalty'] = self.settings.FREQUENCY_PENALTY
+        if self.settings.PRESENCE_PENALTY is not None:
+            model_kwargs['presence_penalty'] = self.settings.PRESENCE_PENALTY
+        if self.settings.STOP_SEQUENCES is not None:
+            model_kwargs['stop'] = self.settings.STOP_SEQUENCES
+        if logprobs:
+            model_kwargs['logprobs'] = logprobs
+
+        # Add reasoning_effort for o1/o3 models
+        if any(o1_model in model.lower() for o1_model in ['o1', 'o3']):
+            model_kwargs['reasoning_effort'] = reasoning_effort
+
+        if model_kwargs:
+            params['model_kwargs'] = model_kwargs
+
+        model_instance = ChatOpenAI(**params)
+        logger.info("OpenAI model creation completed")
+        return model_instance
+
 class OllamaModelFactory(ModelFactory):
     """Factory for creating Ollama chat models."""
-    
+
     def __init__(self, settings: Optional[OllamaSettings] = None):
         """Initialize the factory with settings."""
         self.settings = settings or OllamaSettings()
